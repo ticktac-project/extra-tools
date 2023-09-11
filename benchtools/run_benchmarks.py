@@ -91,10 +91,7 @@ def extract_stats(tchecker_stats, expected_keys):
 def reset_skip_column(model):
     if not "reset_skip" in model:
         return None
-    if not model["reset_skip"].isdigit():
-        print("*** reset_skip should be an integer value")
-        sys.exit()
-    reset_skip = int(model["reset_skip"])
+    reset_skip = model["reset_skip"]
     if (reset_skip < 0) or (reset_skip >= len(model["matrix"])):
         print("*** reset_skip should be between 0 and the size of 'matrix' - 1")
         sys.exit()
