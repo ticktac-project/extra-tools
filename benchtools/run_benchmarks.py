@@ -7,9 +7,12 @@ import json
 import subprocess
 import sys
 
-# This script runs TChecker programs on TChecker models as specified by the input JSON benchmark
-# specification file. It runs each program on each model and extract the statistics produced by
-# the programs. These statistics are output to a JSON file.
+# This script runs TChecker programs on TChecker models as specified by the 
+# input JSON benchmark specification file. It runs each program on each model 
+# and extract the statistics produced by the programs. These statistics are #
+# output to a JSON file.
+# JSON format description abaibale at:
+# https://github.com/ticktac-project/extra-tools/blob/master/benchtools/README.md
 
 
 # Creates dictionary from TChecker stats output
@@ -82,8 +85,23 @@ def extract_stats(tchecker_stats, expected_keys):
     return stats
 
 
+# Computes the column of model's matrix where to reset the skip flag
+# model : model description inside a benchmark
+# returns a column number in the model's matrix if any, -1 otherwise
+def reset_skip_column(model):
+    if not "reset_skip" in model:
+        return None
+    if not model["reset_skip"].isdigit():
+        print("*** reset_skip should be an integer value")
+        sys.exit()
+    reset_skip = int(model["reset_skip"])
+    if (reset_skip < 0) or (reset_skip >= len(model["matrix"])):
+        print("*** reset_skip should be between 0 and the size of 'matrix' - 1")
+        sys.exit()
+    return reset_skip
+
 # Runs all experiments listed in a benchmark
-# benchmark : list of experiments (see format above)
+# benchmark : list of experiments
 # returns table of stats as described in benchmarks
 def run_benchmark(benchmark):
     results = {"name": benchmark["name"], "stats": {}}
@@ -93,12 +111,20 @@ def run_benchmark(benchmark):
     )
     for model_name in benchmark["models"]:
         skip = {program_name: False for program_name in benchmark["programs"]}
+        reset_skip_col = reset_skip_column(benchmark["models"][model_name])
         model = benchmark["models"][model_name]
+        last_reset_skip_value = 0 # arbitrary
         for config in itertools.product(*model["matrix"]):
+            # reset skip if needed
+            if reset_skip_col != None and config[reset_skip_col] != last_reset_skip_value:
+                skip = {program_name: False for program_name in benchmark["programs"]}
+            last_reset_skip_value = config[reset_skip_col] if reset_skip_col != None else last_reset_skip_value
+            # build model
             model_fullname = model_name + " " + " ".join(config)
             print("- Building model", model_fullname, "...", flush=True)
             m = build_model(model["cmd"], model["args"] + list(config))
             results["stats"][model_fullname] = {}
+            # run each program
             for program_name in benchmark["programs"]:
                 program = benchmark["programs"][program_name]
                 print("   Running", program_name, "...", end="", flush=True)

@@ -55,7 +55,8 @@ The script `run_benchmarks.py` takes as input the specification of the benchmark
         "B": {
             "cmd": "/path/to/script/that/generates/model/B/script.py",
             "args": ["--foo", "bar"],
-            "matrix": [["3", "4"], ["100", "200"]]
+            "matrix": [["3", "4", "5"], ["100", "200"]],
+            "reset_skip": 0
         }
     },
     "programs": {
@@ -83,11 +84,11 @@ The script `run_benchmarks.py` takes as input the specification of the benchmark
 
 The specification consists in 5 parts. The `name` of the benchmark, a `timeout` value, and a `skip_on_timeout` flag (optional, `False` by default), a list of `models` and a list of `programs`. The script `run_benchmarks.py` will run each program on each model and collect the satistics specified in the `stats` part of each program. 
 
-The models are instantiated by running the script given at `cmd` with specified arguments and extra arguments obtained from the `matrix`. The `matrix` specifies parameters which are used to generate instances of various size or complexity of the model. In our example above, model `A` will be instantiated by running script `/path/to/script/that/generates/model/A/generate.sh` successively with arguments `2`, `3` and `4`. Instances of model `B` will be obtained by running script `/path/to/script/that/generates/model/B/script.py` with argument `--foo bar` and extra arguments `3 100`, then `3 200`, `4 100` and finally `4 200` successively.
+The models are instantiated by running the script given at `cmd` with specified arguments and extra arguments obtained from the `matrix`. The `matrix` specifies parameters which are used to generate instances of various size or complexity of the model. In our example above, model `A` will be instantiated by running script `/path/to/script/that/generates/model/A/generate.sh` successively with arguments `2`, `3` and `4`. Instances of model `B` will be obtained by running script `/path/to/script/that/generates/model/B/script.py` with argument `--foo bar` and extra arguments `3 100`, then `3 200`, `4 100` , `4 200`, `5 100` and finally `5 200` successively.
 
 The script `run_benchmarks.py` instantiates the models on-the-fly and applies each program in the `programs` part to the model instance. In our example, the first program `reach` corresponds to running `/path/to/tchecker/tck-reach -a reach -s bfs` and collect statistics `VISITED_STATES` and `VISITED_TRANSITIONS`. The second program `covreach` corresponds to running `/path/to/tchecker/tck-reach -a covreach` and collect statistics `VISITED_STATES`, `VISITED_TRANSITIONS`, `RUNNING_TIME_SECONDS` and `MEMORY_MAX_RSS`.
 
-When running a program on a model instance exceeds `timeout`, the script `run_benchmarks.py` stops the program and proceeds with the next program or model instance. If `skip_on_timeout` is `True`, the script `run_benchmarks.py` will skip running the program that has timed out on the subsequent instances of the same model. But this program will be run on the next model. For instance, if program `reach` times out on instance of model `A` with parameter `3`, then it will not be run on instance of `A` with paramater `4`, however it will be run on model `B`.
+When running a program on a model instance exceeds `timeout`, the script `run_benchmarks.py` stops the program and proceeds with the next program or model instance. If `skip_on_timeout` is `True`, the script `run_benchmarks.py` will skip running the program that has timed out on the subsequent instances of the same model. But this program will be run on the next model. For instance, if program `reach` times out on instance of model `A` with parameter `3`, then it will not be run on instance of `A` with paramater `4`, however it will be run on model `B`. For models with more complex `matrix`, the value of `reset_skip` allows to reset the skip flag when a specific column of the matrix changes value. On the example above, if program `reach` times out on arguments `4 100`, the next value `4 200` will be skipped. However, it will be run on `5 100` as `reset_skip` has value `0` and the first argument (of index `0`) has changed from `4` to `5`. The value of `reset_skip` should be a valid index in the `matrix` (seen as a list of lists).
 
 The script `run_benchmarks.py` produces statistics as specified in the benchmark specification. The output file format is described in the next section.
 
