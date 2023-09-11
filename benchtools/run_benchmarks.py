@@ -89,7 +89,7 @@ def run_benchmark(benchmark):
     results = {"name": benchmark["name"], "stats": {}}
     timeout = int(benchmark["timeout"]) if "timeout" in benchmark else None
     skip_on_timeout = (
-        bool(benchmark["skip_on_timeout"]) if "skip_on_timeout" in benchmark else False
+        True if "skip_on_timeout" in benchmark and benchmark["skip_on_timeout"] == "True" else False
     )
     for model_name in benchmark["models"]:
         skip = {program_name: False for program_name in benchmark["programs"]}
