@@ -98,15 +98,17 @@ def reset_skip_column(model):
     return reset_skip
 
 # Runs all experiments listed in a benchmark
-# benchmark : list of experiments
+# benchmark : JSON description of benchmark
+# selected_models : list of models from benchmark to run
+# selected_programs : list of programs from benchmark to run
 # returns table of stats as described in benchmarks
-def run_benchmark(benchmark):
+def run_benchmark(benchmark, selected_models, selected_algorithms):
     results = {"name": benchmark["name"], "stats": {}}
     timeout = int(benchmark["timeout"]) if "timeout" in benchmark else None
     skip_on_timeout = (
         True if "skip_on_timeout" in benchmark and benchmark["skip_on_timeout"] == "True" else False
     )
-    for model_name in benchmark["models"]:
+    for model_name in selected_models:
         skip = {program_name: False for program_name in benchmark["programs"]}
         reset_skip_col = reset_skip_column(benchmark["models"][model_name])
         model = benchmark["models"][model_name]
@@ -122,7 +124,7 @@ def run_benchmark(benchmark):
             m = build_model(model["cmd"], model["args"] + list(config))
             results["stats"][model_fullname] = {}
             # run each program
-            for program_name in benchmark["programs"]:
+            for program_name in selected_programs:
                 program = benchmark["programs"][program_name]
                 print("   Running", program_name, "...", end="", flush=True)
                 if skip_on_timeout and skip[program_name]:
@@ -137,16 +139,37 @@ def run_benchmark(benchmark):
                     skip[program_name] = True
     return results
 
+# Select names in a list
+# all : list of names
+# selection : string of comma-separated names, or None
+# return all if selection is None, otherwise the list of names in selection
+# that appear in all
+def select(all, selection):
+    if selection is None:
+        return all
+    selected = selection.split(",")
+    for s in selected:
+        if not s in all:
+            print("Unknown choice", s)
+            sys.exit()
+    return selected
+
 
 # Parse command-line
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(description="Runs a selection of programs over a selection of models and output statistics")
 parser.add_argument("file", nargs=1, help=""" Benchmark JSON specification""")
-parser.add_argument("-o", help=""" Output file name""")
+parser.add_argument("-o", help=""" Output file name (default: standard output)""")
+parser.add_argument("-m", help=""" Models selection, as a comma-separated list (default: all)""")
+parser.add_argument("-p", help=""" Programs selection, as a comma-separated list (default: all)""")
 args = parser.parse_args()
 
-with open(args.file[0], "r") as read_file:
+out_filename = args.file[0]
+
+with open(out_filename, "r") as read_file:
     benchmark = json.load(read_file)
-    results = run_benchmark(benchmark)
+    selected_models = select(list(benchmark["models"]), args.m)
+    selected_programs = select(list(benchmark["programs"]), args.p)
+    results = run_benchmark(benchmark, selected_models, selected_programs)
     if args.o == None:
         json.dump(results)
     else:

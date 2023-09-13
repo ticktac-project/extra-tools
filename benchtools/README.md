@@ -9,17 +9,21 @@ Description
 Usage
 -----
 
-`benchtools` consist in two scritps. The first one, `run_benchmarks.py` is used to run a set of TChecker tools over a set of models, and collect statistics. The set of TChecker tools as well as the set of models and statistics to collect are specified in a JSON file (see below for the file format). Command usage is obtained by running `run_benchmarks.py -h` in a terminal:
+`benchtools` consist in two scritps. The first one, `run_benchmarks.py` is used to run selected TChecker programs over specified models, and collect statistics. The set of TChecker programs as well as the set of models and statistics to collect are specified in a JSON file (see below for the file format). A subset of the models and programs to run can be specified with options `-m` and `-p` respectively. For instance, `-m "model 1,model 2" -p "p1,p2,p3` runs programs `p1`, `p2` and `p3` over models `model 1` and `model 2`. The specified models and programs should be defined in `file`. Command usage is obtained by running `run_benchmarks.py -h` in a terminal:
 
 ```
-usage: run_benchmarks.py [-h] [-o O] file
+usage: run_benchmarks.py [-h] [-o O] [-m M] [-p P] file
+
+Runs a selection of programs over a selection of models and output statistics
 
 positional arguments:
   file        Benchmark JSON specification
 
 options:
   -h, --help  show this help message and exit
-  -o O        Output file name
+  -o O        Output file name (default: standard output)
+  -m M        Models selection, as a comma-separated list (default: all)
+  -p P        Programs selection, as a comma-separated list (default: all)
 ```
 
 The second script `make_table.py` builds a LaTeX table from a table specification and the statistics output by `run_benchmarks.py`. See below for a description of the JSON format expected by this script. Usage is obtained by running `make_table.py -h` in a terminal:
