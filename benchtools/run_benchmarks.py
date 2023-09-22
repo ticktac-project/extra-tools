@@ -171,7 +171,7 @@ with open(out_filename, "r") as read_file:
     selected_programs = select(list(benchmark["programs"]), args.p)
     results = run_benchmark(benchmark, selected_models, selected_programs)
     if args.o == None:
-        json.dump(results)
+        json.dump(results, sys.stdout)
     else:
         with open(args.o, "w") as write_file:
             json.dump(results, write_file)
