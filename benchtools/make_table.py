@@ -10,6 +10,26 @@ import sys
 # Each run in the input file correspond to a row in the table, and each algorithm in a row corresponds to a column.
 # The table caption corresponds to the 'name' of the benchmark.
 
+# Check if the column/sub_column has to be used for the generated table
+# table_description : JSON description of table
+# column: column name
+# sub_column: sub-column name
+# return True if either no 'enabled' flag is enabled in specified or if the flag is "True"
+def sub_column_is_enabled(table_description, column, sub_column):
+    assert column in table_description["columns"]
+    col = table_description["columns"][column]
+    assert sub_column in col
+    return not ("enabled" in col[sub_column]) or col[sub_column]["enabled"] == "True"
+
+
+# Computes the list of enabled sub-columns for a given column
+# table_description : JSON description of table
+# column: column name
+# return The list of enabled sub-columns of 'column'
+def enabled_sub_columns(table_description, column):
+    assert column in table_description["columns"]
+    return [sc for sc in table_description["columns"][column] if sub_column_is_enabled(table_description, column, sc)]
+
 
 # Compute LaTeX tabular columns description
 # table_description : JSON description of table
@@ -18,7 +38,7 @@ def compute_LaTeX_tabular_columns(table_description):
     str = "|l|"  # column for models
     for column in table_description["columns"]:
         str += "|"
-        for sub_column in table_description["columns"][column]:
+        for sub_column in enabled_sub_columns(table_description, column):
             str += "r|"
     return str
 
@@ -30,15 +50,14 @@ def compute_LaTeX_tabular_columns(table_description):
 def compute_LaTeX_column_headers(table_description):
     # Columns header
     s = "Models "  # first column
+    sc_h = "" # sub-columns headers
     for column in table_description["columns"]:
-        sub_column_count = len(table_description["columns"][column])
+        sub_columns = enabled_sub_columns(table_description, column)
+        sub_column_count = len(sub_columns)
         s += "& \multicolumn{" + str(sub_column_count) + "}{c|}{" + column + "} "
-    s += "\\\\\n"
-    # Sub columns header
-    for column in table_description["columns"]:
-        for sub_column in table_description["columns"][column]:
-            s += " & " + sub_column
-    s += "\\\\\n"
+        for sub_column in sub_columns:
+            sc_h += " & " + sub_column
+    s += "\\\\\n" + sc_h + "\\\\\n"
     return s
 
 
@@ -138,7 +157,8 @@ def compute_LaTeX_row_column(data, table_description, row, column):
     assert row in table_description["rows"]
     assert column in table_description["columns"]
     assert row in data["stats"]
-    sub_columns_count = len(table_description["columns"][column])
+    sub_columns = enabled_sub_columns(table_description, column)
+    sub_columns_count = len(sub_columns)
     if not column in data["stats"][row]:
         print("*** WARNING: missing", column, "in row", row)
         return " & \multicolumn{" + str(sub_columns_count) + "}{c|}{missing}"
@@ -146,7 +166,7 @@ def compute_LaTeX_row_column(data, table_description, row, column):
     if status != "success":
         return " & \multicolumn{" + str(sub_columns_count) + "}{c|}{" + status + "}"
     s = ""
-    for sub_column in table_description["columns"][column]:
+    for sub_column in sub_columns:
         expr = table_description["columns"][column][sub_column]
         value = evaluate(data["stats"][row][column], expr)
         s += " & " + str(value)
@@ -185,6 +205,32 @@ def compute_LaTeX_rows(data, table_description):
     return s
 
 
+# Check if the given parameter exists in the table description
+# table_description : JSON description of table
+# parameter : name of the parameter to look for
+# return True if the parameter is specified or False if not
+def has_parameter(table_description, parameter):
+    return "parameters" in table_description and parameter in table_description["parameters"]
+
+
+# Return the JSON value of given paramter
+# table_description : JSON description of table
+# parameter : name of the parameter to look for
+# return the value of `parameter` if it exists or None if not
+def get_parameter(table_description, parameter):
+    if has_parameter(table_description, parameter):
+        return table_description["parameters"][parameter]
+    return None
+
+
+# Check in table_description if on the tabular environment must be generated
+# table_description : JSON description of table
+# return True if the parameter `tabular` exists and is "True"
+def parameter_only_tabular(table_description):
+    only_tabular = get_parameter(table_description, "tabular")
+    return only_tabular == "True"
+
+
 # Create a LaTeX table from a JSON benchmark results (see file format above)
 # data : JSON benchmark results
 # table_description : JSON description of table
@@ -193,8 +239,8 @@ def create_LaTeX_table(data, table_description):
     tabular_columns = compute_LaTeX_tabular_columns(table_description)
     tabular_header_rows = compute_LaTeX_column_headers(table_description)
     tabular_rows = compute_LaTeX_rows(data, table_description)
-    table_name = f"{data['name']}"
-    table = "\\begin{table}\n"
+    tabular_only = parameter_only_tabular(table_description)
+    table = "" if tabular_only else "\\begin{table}\n"
     table += "  \\begin{tabular}{" + tabular_columns + "}\n"
     table += "    \\hline\n"
     table += tabular_header_rows
@@ -202,8 +248,10 @@ def create_LaTeX_table(data, table_description):
     table += tabular_rows
     table += "    \\hline\n"
     table += "   \\end{tabular}\n"
-    table += f"  \\caption" + "{" + table_name + "}\n"
-    table += "\\end{table}\n"
+    if not tabular_only:
+        table_name = f"{data['name']}"
+        table += f"  \\caption" + "{" + table_name + "}\n"
+        table += "\\end{table}\n"
     return table
 
 
@@ -214,6 +262,7 @@ parser.add_argument(
     "-t", required=True, help=""" JSON description of table rows and columns"""
 )
 parser.add_argument("-o", help=""" Output file name""")
+
 args = parser.parse_args()
 
 table_description_file = open(args.t, "r")

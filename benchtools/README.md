@@ -86,7 +86,7 @@ The script `run_benchmarks.py` takes as input the specification of the benchmark
 }
 ```
 
-The specification consists in 5 parts. The `name` of the benchmark, a `timeout` value, and a `skip_on_timeout` flag (optional, `False` by default), a list of `models` and a list of `programs`. The script `run_benchmarks.py` will run each program on each model and collect the satistics specified in the `stats` part of each program. 
+The specification consists in 5 parts. The `name` of the benchmark, a `timeout` value, and a `skip_on_timeout` flag (optional, `False` by default), a list of `models` and a list of `programs`. The script `run_benchmarks.py` will run each program on each model and collect the statistics specified in the `stats` part of each program. 
 
 The models are instantiated by running the script given at `cmd` with specified arguments and extra arguments obtained from the `matrix`. The `matrix` specifies parameters which are used to generate instances of various size or complexity of the model. In our example above, model `A` will be instantiated by running script `/path/to/script/that/generates/model/A/generate.sh` successively with arguments `2`, `3` and `4`. Instances of model `B` will be obtained by running script `/path/to/script/that/generates/model/B/script.py` with argument `--foo bar` and extra arguments `3 100`, then `3 200`, `4 100` , `4 200`, `5 100` and finally `5 200` successively.
 
@@ -150,7 +150,7 @@ When `run_benchmarks.py` terminates, it outputs a JSON file as follows:
 
 The `name` is the copied from the benchmark specification. Then, the file contains one `stats` entry for each instance of each model. Only the entries corresponding to instances of model `A` are shown above for readability. In the example above, `A 2` corresponds to the runs of the programs on the instances of model `A` with parameter `2`.
 
-Each `stats` entry has a dictionnary of statistics for each program in the benchmark. For `A 2`, we find an entry for the first program `reach` and a second entry for the other program `covreach`. For each of them, the file contains the statistics specified in the benchmark file presented in the previous section. It also contains a `status` information. The `status` can be `success` when the run was successfull, `timeout` if the run has timed out, `skipped` when the run was skipped (i.e. the program has not been run on the instance), and `error` when an error occurred.
+Each `stats` entry has a dictionary of statistics for each program in the benchmark. For `A 2`, we find an entry for the first program `reach` and a second entry for the other program `covreach`. For each of them, the file contains the statistics specified in the benchmark file presented in the previous section. It also contains a `status` information. The `status` can be `success` when the run was successful, `timeout` if the run has timed out, `skipped` when the run was skipped (i.e. the program has not been run on the instance), and `error` when an error occurred.
 
 In our example, program `reach` timed out on instance `A 3`. Then it was not run on instance `A 4` (`status` is `skipped`) since `skip_on_timeout` is `True` in the benchmark specification. Thus the program `reach` is not run on any subsequent instance of model `A`. However, it restarts running from the first instance of the next model (model `B` is our example).
 
@@ -161,6 +161,9 @@ The script `make_table.py` can be used to build a LaTeX table from the statistic
 
 ```json
 {
+    "parameters": {
+      "tabular" : "False"
+    },
     "rows": [
         "A 2",
         "A 3",
@@ -194,6 +197,7 @@ The script `make_table.py` can be used to build a LaTeX table from the statistic
                 }
             },
             "time": {
+                "enabled" : "False",
                 "round": {
                     "value": {
                         "name": "RUNNING_TIME_SECONDS",
@@ -219,15 +223,18 @@ The script `make_table.py` can be used to build a LaTeX table from the statistic
 }
 ```
 
-The table specification consists in a list of rows and a list of columns. For rows, we only specify row names. They should correspond to entries in the `stats` part of the satitistics file (see previous section). Empty row names correspond to separators (`\hline` in LaTeX).
+The table specification consists in a list of parameters, rows and a list of columns. For rows, we only specify row names. They should correspond to entries in the `stats` part of the satitistics file (see previous section). Empty row names correspond to separators (`\hline` in LaTeX).
 
 The columns of the table should correspond to program names in the statistics file (here `reach` and `covreach`). Then, for each column, we specify sub columns that will contain the values in the table. In our example, the column `reach` will have sub columns `N` and `T`, and column `covreach` will have sub columns `N`, `T`, `time` and `mem`. For each sub column, we specify how the value is obtained.
+A flag `enabled` can be used for each sub-column to indicate that then sub-column is taken into account or not; by default it is the case.
 
 A value in the table is obtained by application of functions to the values in the statistics file. The function `value` returns the value of the satistics with the given `name` and `type` (which is `str` is the type is not specified). The function `divide` returns its sub value divided by the denominator specified with `by`. And the function `round` rounds up values to the specified `decimal` number.
 
 In our example, the value in row `A 2`, column `reach` and sub column `N` is obtained by reading the value in entry `A 2`/`reach`/`VISITED_STATES` in the `stats` dictionnary of the input file (see section above). The value in row `A 3`, column `covreach`, sub column `mem` is obtained from the value in entry `A 3`/`covreach`/`MEMORY_MAX_RSS`, which is divided by 1048576, and rounded to the first decimal.
 
 The values are computed only when the `status` of computation is `success`. In all other cases, the status is written to the table instead of the values.
+
+Only one parameter is currently supported. A Boolean string assigned to parameter `tabular` indicates, if `True`, the generated table is not enclosed by a `table` environment and no caption is produced. 
 
 The script `make_table.py` will produce the following LaTeX table from the specification above and the statistics in the previous section:
 
