@@ -92,7 +92,10 @@ def evaluate_divide(stats, expr):
     value = None
     for e in expr:
         if e == "by":
-            divisor = int(expr["by"])
+            try:
+                divisor = int(expr["by"])
+            except (ValueError, TypeError):
+                divisor = evaluate(stats, expr[e])
         else:
             value = evaluate(stats, {e: expr[e]})
     if divisor is None:
