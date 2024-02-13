@@ -130,6 +130,31 @@ def evaluate_round(stats, expr):
     return math.floor(value * factor) / factor
 
 
+# Evaluate percent expression
+# stats : stats dict
+# expr : percent expression
+# returns the value of expression expr evaluated on stats
+def evaluate_percent(stats, expr):
+    assert len(expr) == 2
+    num = None
+    den = None
+    for e in expr:
+        if e == "num":
+            num = evaluate(stats, expr[e])
+        else:
+            den = evaluate(stats, expr[e])
+    if den == None:
+        print("*** ERROR: missing 'den' in ", expr)
+        sys.exit()
+    if num == None:
+        print("*** ERROR: missing 'num' in", expr)
+        sys.exit()
+    if den == 0:
+        assert num == 0
+        return 100.00
+    return math.floor((100.0 * num / den) * 100) / 100
+
+
 # Evaluate expression from table_description
 # stats : stats dict
 # expr : JSON expression
@@ -141,6 +166,8 @@ def evaluate(stats, expr):
         return evaluate_divide(stats, expr["divide"])
     elif "round" in expr:
         return evaluate_round(stats, expr["round"])
+    elif "percent" in expr:
+        return evaluate_percent(stats, expr["percent"])
     else:
         print("*** ERROR: unexpected expression", expr)
         sys.exit()
