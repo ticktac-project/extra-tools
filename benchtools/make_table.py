@@ -95,13 +95,13 @@ def evaluate_divide(stats, expr):
             divisor = int(expr["by"])
         else:
             value = evaluate(stats, {e: expr[e]})
-    if divisor == None:
+    if divisor is None:
         print("*** ERROR: missing 'by' in ", expr)
         sys.exit()
     if divisor == 0:
         print("*** ERROR: division by 0")
         sys.exit()
-    if value == None:
+    if value is None:
         print("*** ERROR: missing value to divide in", expr)
         sys.exit()
     return value / divisor
@@ -120,10 +120,10 @@ def evaluate_round(stats, expr):
             decimal = int(expr["decimal"])
         else:
             value = evaluate(stats, {e: expr[e]})
-    if decimal == None:
+    if decimal is None:
         print("*** ERROR: missing 'decimal' in ", expr)
         sys.exit()
-    if value == None:
+    if value is None:
         print("*** ERROR: missing value to round in", expr)
         sys.exit()
     factor = pow(10, decimal)
@@ -143,10 +143,10 @@ def evaluate_percent(stats, expr):
             num = evaluate(stats, expr[e])
         else:
             den = evaluate(stats, expr[e])
-    if den == None:
+    if den is None:
         print("*** ERROR: missing 'den' in ", expr)
         sys.exit()
-    if num == None:
+    if num is None:
         print("*** ERROR: missing 'num' in", expr)
         sys.exit()
     if den == 0:
@@ -302,7 +302,7 @@ results_file.close()
 
 table = create_LaTeX_table(results, table_description)
 
-if args.o == None:
+if args.o is None:
     print(table)
 else:
     with open(args.o, "w") as table_file:
