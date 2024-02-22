@@ -169,7 +169,7 @@ def evaluate_readable(stats, expr):
         sys.exit()
     value = evaluate_value(stats, expr["value"])
     if value < 1000:
-        return ""
+        return f"{value}"
 
     if value >= 1_000_000_000:
         value /= 1_000_000_000
