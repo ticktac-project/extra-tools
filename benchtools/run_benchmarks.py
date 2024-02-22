@@ -11,13 +11,13 @@ import sys
 # input JSON benchmark specification file. It runs each program on each model 
 # and extract the statistics produced by the programs. These statistics are #
 # output to a JSON file.
-# JSON format description abaibale at:
+# JSON format description available at:
 # https://github.com/ticktac-project/extra-tools/blob/master/benchtools/README.md
 
 
 # Creates dictionary from TChecker stats output
 # output : TChecker stats output as a string of the form 'KEY1 VALUE1\nKEY2 VALUE2\n ..."
-# (KEY and VALUE shall no contain any space except leading or traling spaces)
+# (KEY and VALUE shall not contain any space except leading or trailing spaces)
 # returns a dictionary mapping each KEY in output to its VALUE, with leading and trailing
 # spaces stripped
 def tchecker_stats_as_dict(output):
@@ -47,7 +47,7 @@ def build_model(cmd, args):
 # args : arguments to program command as an array of strings
 # timeout : timeout for command
 # model : input model for the program, as a string
-# returns dictionnary of statistics produced by the program
+# returns dictionary of statistics produced by the program
 def run_program(cmd, args, timeout, model):
     stats = {}
     try:
@@ -67,7 +67,7 @@ def run_program(cmd, args, timeout, model):
     return stats
 
 
-# Extract satistics
+# Extract statistics
 # tchecker_stats : dict of stats output by TChecker tool
 # expected_keys : list of expected stats keys
 # returns a dict of stats with one entry for each key in expected_keys and
@@ -78,7 +78,7 @@ def extract_stats(tchecker_stats, expected_keys):
     stats = {"status": tchecker_stats["status"]}
     if tchecker_stats["status"] == "success":
         for key in expected_keys:
-            if not key in tchecker_stats:
+            if key not in tchecker_stats:
                 print("*** WARNING: unknown stat", key)
             else:
                 stats[key] = tchecker_stats[key]
@@ -89,7 +89,7 @@ def extract_stats(tchecker_stats, expected_keys):
 # model : model description inside a benchmark
 # returns a column number in the model's matrix if any, -1 otherwise
 def reset_skip_column(model):
-    if not "reset_skip" in model:
+    if "reset_skip" not in model:
         return None
     reset_skip = model["reset_skip"]
     if (reset_skip < 0) or (reset_skip >= len(model["matrix"])):
@@ -97,12 +97,13 @@ def reset_skip_column(model):
         sys.exit()
     return reset_skip
 
+
 # Runs all experiments listed in a benchmark
 # benchmark : JSON description of benchmark
 # selected_models : list of models from benchmark to run
 # selected_programs : list of programs from benchmark to run
 # returns table of stats as described in benchmarks
-def run_benchmark(benchmark, selected_models, selected_algorithms):
+def run_benchmark(benchmark, selected_models, selected_programs):
     results = {"name": benchmark["name"], "stats": {}}
     timeout = int(benchmark["timeout"]) if "timeout" in benchmark else None
     skip_on_timeout = (
@@ -112,12 +113,12 @@ def run_benchmark(benchmark, selected_models, selected_algorithms):
         skip = {program_name: False for program_name in benchmark["programs"]}
         reset_skip_col = reset_skip_column(benchmark["models"][model_name])
         model = benchmark["models"][model_name]
-        last_reset_skip_value = 0 # arbitrary
+        last_reset_skip_value = 0  # arbitrary
         for config in itertools.product(*model["matrix"]):
             # reset skip if needed
-            if reset_skip_col != None and config[reset_skip_col] != last_reset_skip_value:
+            if reset_skip_col is not None and config[reset_skip_col] != last_reset_skip_value:
                 skip = {program_name: False for program_name in benchmark["programs"]}
-            last_reset_skip_value = config[reset_skip_col] if reset_skip_col != None else last_reset_skip_value
+            last_reset_skip_value = config[reset_skip_col] if reset_skip_col is not None else last_reset_skip_value
             # build model
             model_fullname = model_name + " " + " ".join(config)
             print("- Building model", model_fullname, "...", flush=True)
@@ -139,41 +140,48 @@ def run_benchmark(benchmark, selected_models, selected_algorithms):
                     skip[program_name] = True
     return results
 
+
 # Select names in a list
-# all : list of names
+# names : list of names
 # selection : string of comma-separated names, or None
 # return all if selection is None, otherwise the list of names in selection
 # that appear in all
-def select(all, selection):
+def select(names, selection):
     if selection is None:
-        return all
+        return names
     selected = selection.split(",")
     for s in selected:
-        if not s in all:
+        if s not in names:
             print("Unknown choice", s)
             sys.exit()
     return selected
 
 
-# Parse command-line
-parser = argparse.ArgumentParser(description="Runs a selection of programs over a selection of models and output statistics")
-parser.add_argument("file", nargs=1, help=""" Benchmark JSON specification""")
-parser.add_argument("-o", help=""" Output file name (default: standard output)""")
-parser.add_argument("-m", help=""" Models selection, as a comma-separated list (default: all)""")
-parser.add_argument("-p", help=""" Programs selection, as a comma-separated list (default: all)""")
-args = parser.parse_args()
+def main():
+    # Parse command-line
+    parser = argparse.ArgumentParser(description="Runs a selection of programs over a selection of models and output "
+                                                 "statistics")
+    parser.add_argument("file", nargs=1, help=""" Benchmark JSON specification""")
+    parser.add_argument("-o", help=""" Output file name (default: standard output)""")
+    parser.add_argument("-m", help=""" Models selection, as a comma-separated list (default: all)""")
+    parser.add_argument("-p", help=""" Programs selection, as a comma-separated list (default: all)""")
+    args = parser.parse_args()
 
-out_filename = args.file[0]
+    out_filename = args.file[0]
 
-with open(out_filename, "r") as read_file:
-    benchmark = json.load(read_file)
-    selected_models = select(list(benchmark["models"]), args.m)
-    selected_programs = select(list(benchmark["programs"]), args.p)
-    results = run_benchmark(benchmark, selected_models, selected_programs)
-    if args.o == None:
-        json.dump(results, sys.stdout)
-    else:
-        with open(args.o, "w") as write_file:
-            json.dump(results, write_file)
-            write_file.close()
-    read_file.close()
+    with open(out_filename, "r") as read_file:
+        benchmark = json.load(read_file)
+        selected_models = select(list(benchmark["models"]), args.m)
+        selected_programs = select(list(benchmark["programs"]), args.p)
+        results = run_benchmark(benchmark, selected_models, selected_programs)
+        if args.o is None:
+            json.dump(results, sys.stdout)
+        else:
+            with open(args.o, "w") as write_file:
+                json.dump(results, write_file)
+                write_file.close()
+        read_file.close()
+
+
+if __name__ == "__main__":
+    main()

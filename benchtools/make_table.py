@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
-from io import StringIO
 import json
 import math
 import sys
+
 
 # This script produces a LaTeX table from a JSON benchmark output by script run_benchmark.py
 # Each run in the input file correspond to a row in the table, and each algorithm in a row corresponds to a column.
@@ -35,26 +35,26 @@ def enabled_sub_columns(table_description, column):
 # table_description : JSON description of table
 # returns a string representation of LaTeX tabular columns from table_description
 def compute_LaTeX_tabular_columns(table_description):
-    str = "|l|"  # column for models
+    s = "|l|"  # column for models
     for column in table_description["columns"]:
-        str += "|"
-        for sub_column in enabled_sub_columns(table_description, column):
-            str += "r|"
-    return str
+        s += "|"
+        for _ in enabled_sub_columns(table_description, column):
+            s += "r|"
+    return s
 
 
 # Compute LaTeX column header rows
 # table_description : JSON description of table
-# retuns a string with two rows, the first one corresponds to the columns in table_description
+# returns a string with two rows, the first one corresponds to the columns in table_description
 # and the second one corresponds to the sub columns in table_description
 def compute_LaTeX_column_headers(table_description):
     # Columns header
     s = "Models "  # first column
-    sc_h = "" # sub-columns headers
+    sc_h = ""  # sub-columns headers
     for column in table_description["columns"]:
         sub_columns = enabled_sub_columns(table_description, column)
         sub_column_count = len(sub_columns)
-        s += "& \multicolumn{" + str(sub_column_count) + "}{c|}{" + column + "} "
+        s += "& \\multicolumn{" + str(sub_column_count) + "}{c|}{" + column + "} "
         for sub_column in sub_columns:
             sc_h += " & " + sub_column
     s += "\\\\\n" + sc_h + "\\\\\n"
@@ -67,11 +67,11 @@ def compute_LaTeX_column_headers(table_description):
 # returns the value of expression expr evaluated on stats, with the type specified in expr
 def evaluate_value(stats, expr):
     value_name = expr["name"]
-    if not value_name in stats:
+    if value_name not in stats:
         print("*** ERROR: unknown value name", value_name)
         sys.exit()
     value = stats[value_name]
-    if not "type" in expr:
+    if "type" not in expr:
         return value
     elif expr["type"] == "int":
         return int(value)
@@ -189,12 +189,12 @@ def compute_LaTeX_row_column(data, table_description, row, column):
     assert row in data["stats"]
     sub_columns = enabled_sub_columns(table_description, column)
     sub_columns_count = len(sub_columns)
-    if not column in data["stats"][row]:
+    if column not in data["stats"][row]:
         print("*** WARNING: missing", column, "in row", row)
-        return " & \multicolumn{" + str(sub_columns_count) + "}{c|}{missing}"
+        return " & \\multicolumn{" + str(sub_columns_count) + "}{c|}{missing}"
     status = data["stats"][row][column]["status"]
     if status != "success":
-        return " & \multicolumn{" + str(sub_columns_count) + "}{c|}{" + status + "}"
+        return " & \\multicolumn{" + str(sub_columns_count) + "}{c|}{" + status + "}"
     s = ""
     for sub_column in sub_columns:
         expr = table_description["columns"][column][sub_column]
@@ -211,7 +211,7 @@ def compute_LaTeX_row_column(data, table_description, row, column):
 # table_description
 def compute_LaTeX_row(data, table_description, row):
     assert row in table_description["rows"]
-    if not row in data["stats"]:
+    if row not in data["stats"]:
         print("*** WARNING: missing row", row)
         return ""
     s = row
@@ -243,7 +243,7 @@ def has_parameter(table_description, parameter):
     return "parameters" in table_description and parameter in table_description["parameters"]
 
 
-# Return the JSON value of given paramter
+# Return the JSON value of given parameter
 # table_description : JSON description of table
 # parameter : name of the parameter to look for
 # return the value of `parameter` if it exists or None if not
@@ -285,53 +285,25 @@ def create_LaTeX_table(data, table_description):
     return table
 
 
-# Parse command-line
-parser = argparse.ArgumentParser()
-parser.add_argument("file", nargs=1, help=""" Benchmark JSON output""")
-parser.add_argument(
-    "-t", required=True, help=""" JSON description of table rows and columns"""
-)
-parser.add_argument("-o", help=""" Output file name""")
-
-args = parser.parse_args()
-
-table_description_file = open(args.t, "r")
-table_description = json.load(table_description_file)
-table_description_file.close()
-
-results_file = open(args.file[0], "r")
-results = json.load(results_file)
-results_file.close()
-
-table = create_LaTeX_table(results, table_description)
-
-if args.o is None:
-    print(table)
-else:
-    with open(args.o, "w") as table_file:
-        table_file.write(table)
-        table_file.close()
-
-
-# Extract satistics
+# Extract statistics
 # tchecker_stats : dict of stats output by TChecker tool
-# format : filter and map to aply on tchecker_stats (see format above)
-# return a dict of stats extracted from tchecker_stats forllowing format
-def extract_stats(tchecker_stats, format):
+# fmt : filter and map to apply on tchecker_stats (see format above)
+# return a dict of stats extracted from tchecker_stats following format
+def extract_stats(tchecker_stats, fmt):
     stats = {"status": tchecker_stats["status"]}
     if tchecker_stats["status"] == "success":
-        for d in format:
+        for d in fmt:
             if d in tchecker_stats:
-                name = format[d]["name"] if "name" in format[d] else d
+                name = fmt[d]["name"] if "name" in fmt[d] else d
                 value = (
                     float(tchecker_stats[d])
-                    if "type" in format[d] and format[d]["type"] == "float"
+                    if "type" in fmt[d] and fmt[d]["type"] == "float"
                     else int(tchecker_stats[d])
                 )
-                if "divide" in format[d]:
-                    value /= format[d]["divide"]
-                if "decimal" in format[d]:
-                    ndecimal = int(format[d]["decimal"])
+                if "divide" in fmt[d]:
+                    value /= fmt[d]["divide"]
+                if "decimal" in fmt[d]:
+                    ndecimal = int(fmt[d]["decimal"])
                     value *= pow(10, ndecimal)
                     value = math.floor(value)
                     value /= pow(10, ndecimal)
@@ -339,3 +311,36 @@ def extract_stats(tchecker_stats, format):
             else:
                 print("Unknown data", d)
     return stats
+
+
+def main():
+    # Parse command-line
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", nargs=1, help=""" Benchmark JSON output""")
+    parser.add_argument(
+        "-t", required=True, help=""" JSON description of table rows and columns"""
+    )
+    parser.add_argument("-o", help=""" Output file name""")
+
+    args = parser.parse_args()
+
+    table_description_file = open(args.t, "r")
+    table_description = json.load(table_description_file)
+    table_description_file.close()
+
+    results_file = open(args.file[0], "r")
+    results = json.load(results_file)
+    results_file.close()
+
+    table = create_LaTeX_table(results, table_description)
+
+    if args.o is None:
+        print(table)
+    else:
+        with open(args.o, "w") as table_file:
+            table_file.write(table)
+            table_file.close()
+
+
+if __name__ == "__main__":
+    main()
