@@ -158,6 +158,32 @@ def evaluate_percent(stats, expr):
     return math.floor((100.0 * num / den) * 100) / 100
 
 
+# Evaluate human-readable expression
+# stats : stats dict
+# expr : readable expression
+# returns the value of expression expr evaluated on stats
+def evaluate_readable(stats, expr):
+    assert len(expr) == 1
+    if "value" not in expr:
+        print("*** ERROR: missing 'value' in ", expr)
+        sys.exit()
+    value = evaluate_value(stats, expr["value"])
+    if value < 1000:
+        return ""
+
+    if value >= 1_000_000_000:
+        value /= 1_000_000_000
+        suffix = "G"
+    elif value >= 1_000_000:
+        value /= 1_000_000
+        suffix = "M"
+    else:
+        assert(value >= 1_000)
+        value /= 1_000
+        suffix = "k"
+    return "%.1f %s" % (value, suffix)
+
+
 # Evaluate expression from table_description
 # stats : stats dict
 # expr : JSON expression
@@ -171,6 +197,8 @@ def evaluate(stats, expr):
         return evaluate_round(stats, expr["round"])
     elif "percent" in expr:
         return evaluate_percent(stats, expr["percent"])
+    elif "readable" in expr:
+        return evaluate_readable(stats, expr["readable"])
     else:
         print("*** ERROR: unexpected expression", expr)
         sys.exit()
