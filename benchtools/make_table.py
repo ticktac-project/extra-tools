@@ -178,7 +178,7 @@ def evaluate_readable(stats, expr):
         value /= 1_000_000
         suffix = "M"
     else:
-        assert(value >= 1_000)
+        assert (value >= 1_000)
         value /= 1_000
         suffix = "k"
     return "%.1f %s" % (value, suffix)
@@ -341,10 +341,37 @@ def extract_stats(tchecker_stats, fmt):
     return stats
 
 
+def merge_prog_results(results, others):
+    for prog in others:
+        if prog in results:
+            raise Exception(f"try to mix results for the same program '{prog}'")
+        results[prog] = others[prog]
+    return results
+
+
+def merge_results(results, others):
+    if results["name"] != others["name"]:
+        print("WARNING: results look like being from different specs: %s and %s\n" % (results["name"], others["name"]),
+              file=sys.stderr)
+    results_stats = results["stats"]
+    others_stats = others["stats"]
+    for testcase in others_stats:
+        if testcase not in results_stats:
+            print(f"WARNING: while merging results, test-case '{testcase}' not present a result file.\n", file=sys.stderr)
+            results_stats[testcase] = others_stats[testcase]
+        else:
+            try:
+                merge_prog_results(results_stats[testcase], others_stats[testcase])
+            except Exception as e:
+                raise Exception(f"while merging results for test-case \"{testcase}\": {e}\n")
+
+    return results
+
+
 def main():
     # Parse command-line
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", nargs=1, help=""" Benchmark JSON output""")
+    parser.add_argument("file", nargs='+', help=""" Benchmark JSON output""")
     parser.add_argument(
         "-t", required=True, help=""" JSON description of table rows and columns"""
     )
@@ -356,9 +383,20 @@ def main():
     table_description = json.load(table_description_file)
     table_description_file.close()
 
-    results_file = open(args.file[0], "r")
-    results = json.load(results_file)
-    results_file.close()
+    try:
+        results_file = open(args.file[0], "r")
+        results = json.load(results_file)
+        results_file.close()
+        for i in range(1, len(args.file)):
+            results_file = open(args.file[i], "r")
+            tmp_results = json.load(results_file)
+            results = merge_results(results, tmp_results)
+            if results is None:
+                sys.exit(1)
+            results_file.close()
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
     table = create_LaTeX_table(results, table_description)
 
