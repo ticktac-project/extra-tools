@@ -141,6 +141,18 @@ def run_benchmark(benchmark, selected_models, selected_programs):
     return results
 
 
+# Compute the list of specified benchmarks
+# The result is a dictionary containing an entry "rows" usable in a table specification
+def print_benchmarks(benchmark, selected_models, selected_programs):
+    results = []
+    for model_name in selected_models:
+        model = benchmark["models"][model_name]
+        for config in itertools.product(*model["matrix"]):
+            model_fullname = model_name + " " + " ".join(config)
+            results.append(model_fullname)
+    return dict(rows=results)
+
+
 # Select names in a list
 # names : list of names
 # selection : string of comma-separated names, or None
@@ -165,6 +177,8 @@ def main():
     parser.add_argument("-o", help=""" Output file name (default: standard output)""")
     parser.add_argument("-m", help=""" Models selection, as a comma-separated list (default: all)""")
     parser.add_argument("-p", help=""" Programs selection, as a comma-separated list (default: all)""")
+    parser.add_argument("-l", "--list-benchmarks", help=""" Print the list of specified benchmarks """,
+                        action='store_true', default=False)
     args = parser.parse_args()
 
     out_filename = args.file[0]
@@ -173,9 +187,12 @@ def main():
         benchmark = json.load(read_file)
         selected_models = select(list(benchmark["models"]), args.m)
         selected_programs = select(list(benchmark["programs"]), args.p)
-        results = run_benchmark(benchmark, selected_models, selected_programs)
+        if args.list_benchmarks:
+            results = print_benchmarks(benchmark, selected_models, selected_programs)
+        else:
+            results = run_benchmark(benchmark, selected_models, selected_programs)
         if args.o is None:
-            json.dump(results, sys.stdout)
+            json.dump(results, sys.stdout,indent=2)
         else:
             with open(args.o, "w") as write_file:
                 json.dump(results, write_file)
