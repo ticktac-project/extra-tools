@@ -103,7 +103,7 @@ def reset_skip_column(model):
 # selected_models : list of models from benchmark to run
 # selected_programs : list of programs from benchmark to run
 # returns table of stats as described in benchmarks
-def run_benchmark(benchmark, selected_models, selected_programs):
+def run_benchmark(benchmark, selected_models, selected_programs, cmds_only=False):
     results = {"name": benchmark["name"], "stats": {}}
     timeout = int(benchmark["timeout"]) if "timeout" in benchmark else None
     skip_on_timeout = (
@@ -121,24 +121,34 @@ def run_benchmark(benchmark, selected_models, selected_programs):
             last_reset_skip_value = config[reset_skip_col] if reset_skip_col is not None else last_reset_skip_value
             # build model
             model_fullname = model_name + " " + " ".join(config)
-            print("- Building model", model_fullname, "...", flush=True)
+            if not cmds_only:
+                print("- Building model", model_fullname, "...", flush=True)
+                results["stats"][model_fullname] = {}
             m = build_model(model["cmd"], model["args"] + list(config))
-            results["stats"][model_fullname] = {}
             # run each program
             for program_name in selected_programs:
                 program = benchmark["programs"][program_name]
-                print("   Running", program_name, "...", end="", flush=True)
-                if skip_on_timeout and skip[program_name]:
-                    stats = {"status": "skipped"}
+                if cmds_only:
+                    model_cmd = " ".join([model["cmd"]] + model["args"] + list(config))
+                    tool_cmd = " ".join([program["cmd"]] + program["args"])
+                    print("{0}:{1}:{2}:{3}".format(model_fullname, model_cmd, program["cmd"], tool_cmd))
                 else:
-                    stats = run_program(program["cmd"], program["args"], timeout, m)
-                print(stats["status"])
-                results["stats"][model_fullname][program_name] = extract_stats(
-                    stats, program["stats"]
-                )
-                if stats["status"] == "timeout":
-                    skip[program_name] = True
+                    print("   Running", program_name, "...", end="", flush=True)
+                    if skip_on_timeout and skip[program_name]:
+                        stats = {"status": "skipped"}
+                    else:
+                        stats = run_program(program["cmd"], program["args"], timeout, m)
+                    print(stats["status"])
+                    results["stats"][model_fullname][program_name] = extract_stats(
+                        stats, program["stats"]
+                    )
+                    if stats["status"] == "timeout":
+                        skip[program_name] = True
     return results
+
+
+def print_commands(benchmark, selected_models, selected_programs):
+    run_benchmark(benchmark, selected_models, selected_programs, True)
 
 
 # Compute the list of specified benchmarks
@@ -177,6 +187,7 @@ def main():
     parser.add_argument("-o", help=""" Output file name (default: standard output)""")
     parser.add_argument("-m", help=""" Models selection, as a comma-separated list (default: all)""")
     parser.add_argument("-p", help=""" Programs selection, as a comma-separated list (default: all)""")
+    parser.add_argument("-E", "--only-commands", help=""" Print only commands to execute""", action='store_true', default=False)
     parser.add_argument("-l", "--list-benchmarks", help=""" Print the list of specified benchmarks """,
                         action='store_true', default=False)
     args = parser.parse_args()
@@ -187,16 +198,19 @@ def main():
         benchmark = json.load(read_file)
         selected_models = select(list(benchmark["models"]), args.m)
         selected_programs = select(list(benchmark["programs"]), args.p)
-        if args.list_benchmarks:
-            results = print_benchmarks(benchmark, selected_models, selected_programs)
+        if args.only_commands:
+            print_commands(benchmark, selected_models, selected_programs)
         else:
-            results = run_benchmark(benchmark, selected_models, selected_programs)
-        if args.o is None:
-            json.dump(results, sys.stdout,indent=2)
-        else:
-            with open(args.o, "w") as write_file:
-                json.dump(results, write_file)
-                write_file.close()
+            if args.list_benchmarks:
+                results = print_benchmarks(benchmark, selected_models, selected_programs)
+            else:
+                results = run_benchmark(benchmark, selected_models, selected_programs, sys.stderr)
+            if args.o is None:
+                json.dump(results, sys.stdout,indent=2)
+            else:
+                with open(args.o, "w") as write_file:
+                    json.dump(results, write_file)
+                    write_file.close()
         read_file.close()
 
 
