@@ -131,7 +131,7 @@ def run_benchmark(benchmark, selected_models, selected_programs, cmds_only=False
                 if cmds_only:
                     model_cmd = " ".join([model["cmd"]] + model["args"] + list(config))
                     tool_cmd = " ".join([program["cmd"]] + program["args"])
-                    print("{0}:{1}:{2}:{3}".format(model_fullname, model_cmd, program["cmd"], tool_cmd))
+                    print("{0}:{1}:{2}:{3}".format(model_fullname, model_cmd, program_name, tool_cmd))
                 else:
                     print("   Running", program_name, "...", end="", flush=True)
                     if skip_on_timeout and skip[program_name]:
