@@ -204,7 +204,8 @@ def main():
             if args.list_benchmarks:
                 results = print_benchmarks(benchmark, selected_models, selected_programs)
             else:
-                results = run_benchmark(benchmark, selected_models, selected_programs, sys.stderr)
+                results = run_benchmark(benchmark, selected_models, 
+                selected_programs, args.only_commands)
             if args.o is None:
                 json.dump(results, sys.stdout,indent=2)
             else:
