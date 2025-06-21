@@ -255,6 +255,9 @@ def compute_LaTeX_row(data, table_description, row):
 # table_description
 def compute_LaTeX_rows(data, table_description):
     s = ""
+    if isinstance(table_description["rows"],str):
+        with open(table_description["rows"], "r") as rowin:
+            table_description["rows"] = json.load(rowin)
     for row in table_description["rows"]:
         if row == "":
             s += "\\hline\n"
