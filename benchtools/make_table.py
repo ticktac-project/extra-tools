@@ -5,6 +5,9 @@ import json
 import math
 import sys
 
+# Exception raise when a field does not exist
+class UnknownValueException(Exception):
+    pass
 
 # This script produces a LaTeX table from a JSON benchmark output by script run_benchmark.py
 # Each run in the input file correspond to a row in the table, and each algorithm in a row corresponds to a column.
@@ -68,8 +71,7 @@ def compute_LaTeX_column_headers(table_description):
 def evaluate_value(stats, expr):
     value_name = expr["name"]
     if value_name not in stats:
-        print("*** ERROR: unknown value name", value_name)
-        sys.exit()
+        raise UnknownValueException(f"unknown value name '{value_name}'")
     value = stats[value_name]
     if "type" not in expr:
         return value
@@ -211,7 +213,7 @@ def evaluate(stats, expr):
 # column : column name
 # returns a string with LaTeX tabular column in row with values computed from data according to
 # table_description
-def compute_LaTeX_row_column(data, table_description, row, column):
+def compute_LaTeX_row_column(data, table_description, row, column, ignore_unknown_values=False):
     assert row in table_description["rows"]
     assert column in table_description["columns"]
     assert row in data["stats"]
@@ -226,7 +228,14 @@ def compute_LaTeX_row_column(data, table_description, row, column):
     s = ""
     for sub_column in sub_columns:
         expr = table_description["columns"][column][sub_column]
-        value = evaluate(data["stats"][row][column], expr)
+        try:
+            value = evaluate(data["stats"][row][column], expr)
+        except UnknownValueException as e:
+            if ignore_unknown_values:
+                value = "\\#\\#\\#"
+            else:
+                print(f"ERROR: {e}", file=sys.stderr)
+                sys.exit()
         s += " & " + str(value)
     return s
 
@@ -237,14 +246,14 @@ def compute_LaTeX_row_column(data, table_description, row, column):
 # row : row name
 # returns a string with LaTeX tabular row with values computed from data according to
 # table_description
-def compute_LaTeX_row(data, table_description, row):
+def compute_LaTeX_row(data, table_description, row, ignore_unknown_values=False):
     assert row in table_description["rows"]
     if row not in data["stats"]:
         print("*** WARNING: missing row", row)
         return ""
     s = row
     for column in table_description["columns"]:
-        s += compute_LaTeX_row_column(data, table_description, row, column)
+        s += compute_LaTeX_row_column(data, table_description, row, column, ignore_unknown_values)
     return s
 
 
@@ -253,7 +262,7 @@ def compute_LaTeX_row(data, table_description, row):
 # table_description : JSON description of table
 # returns a string with LaTeX tabular rows with values computed from data according to
 # table_description
-def compute_LaTeX_rows(data, table_description):
+def compute_LaTeX_rows(data, table_description, ignore_unknown_values=False):
     s = ""
     if isinstance(table_description["rows"],str):
         with open(table_description["rows"], "r") as rowin:
@@ -262,7 +271,7 @@ def compute_LaTeX_rows(data, table_description):
         if row == "":
             s += "\\hline\n"
         else:
-            s += compute_LaTeX_row(data, table_description, row) + "\\\\\n"
+            s += compute_LaTeX_row(data, table_description, row, ignore_unknown_values) + "\\\\\n"
     return s
 
 
@@ -295,11 +304,11 @@ def parameter_only_tabular(table_description):
 # Create a LaTeX table from a JSON benchmark results (see file format above)
 # data : JSON benchmark results
 # table_description : JSON description of table
-def create_LaTeX_table(data, table_description):
+def create_LaTeX_table(data, table_description, ignore_unknown_values=False):
     assert "name" in data
     tabular_columns = compute_LaTeX_tabular_columns(table_description)
     tabular_header_rows = compute_LaTeX_column_headers(table_description)
-    tabular_rows = compute_LaTeX_rows(data, table_description)
+    tabular_rows = compute_LaTeX_rows(data, table_description, ignore_unknown_values)
     tabular_only = parameter_only_tabular(table_description)
     table = "" if tabular_only else "\\begin{table}\n"
     table += "  \\begin{tabular}{" + tabular_columns + "}\n"
@@ -379,6 +388,7 @@ def main():
         "-t", required=True, help=""" JSON description of table rows and columns"""
     )
     parser.add_argument("-o", help=""" Output file name""")
+    parser.add_argument("--ignore-unknown-values", action='store_true', help=""" Do not generate an error on unknown values""")
 
     args = parser.parse_args()
 
@@ -401,7 +411,7 @@ def main():
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
-    table = create_LaTeX_table(results, table_description)
+    table = create_LaTeX_table(results, table_description, args.ignore_unknown_values)
 
     if args.o is None:
         print(table)
