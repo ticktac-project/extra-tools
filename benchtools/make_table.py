@@ -232,6 +232,7 @@ def compute_LaTeX_row_column(data, table_description, row, column, ignore_unknow
             value = evaluate(data["stats"][row][column], expr)
         except UnknownValueException as e:
             if ignore_unknown_values:
+                print(f"warning: {e}")
                 value = "\\#\\#\\#"
             else:
                 print(f"ERROR: {e}", file=sys.stderr)
