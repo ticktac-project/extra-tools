@@ -205,15 +205,17 @@ def evaluate(stats, expr):
         print("*** ERROR: unexpected expression", expr)
         sys.exit()
 
+class NoSuccessException(Exception):
+    pass
 
 # Compute a LaTeX table column in a row
 # data : JSON benchmark results
 # table_description : JSON description of table
 # row : row name
 # column : column name
-# returns a string with LaTeX tabular column in row with values computed from data according to
-# table_description
-def compute_LaTeX_row_column(data, table_description, row, column, ignore_unknown_values=False):
+# returns a couple containing, a string with LaTeX tabular column in row with values computed from data according to
+# table_description and a Boolean value that is True is case of success
+def compute_LaTeX_row_column(data, table_description, row, column, ignore_unknown_values = False):
     assert row in table_description["rows"]
     assert column in table_description["columns"]
     assert row in data["stats"]
@@ -221,10 +223,10 @@ def compute_LaTeX_row_column(data, table_description, row, column, ignore_unknow
     sub_columns_count = len(sub_columns)
     if column not in data["stats"][row]:
         print("*** WARNING: missing", column, "in row", row)
-        return " & \\multicolumn{" + str(sub_columns_count) + "}{c|}{missing}"
+        return " & \\multicolumn{" + str(sub_columns_count) + "}{c|}{missing}", False
     status = data["stats"][row][column]["status"]
     if status != "success":
-        return " & \\multicolumn{" + str(sub_columns_count) + "}{c|}{" + status + "}"
+        return " & \\multicolumn{" + str(sub_columns_count) + "}{c|}{" + status + "}", False
     s = ""
     for sub_column in sub_columns:
         expr = table_description["columns"][column][sub_column]
@@ -238,8 +240,7 @@ def compute_LaTeX_row_column(data, table_description, row, column, ignore_unknow
                 print(f"ERROR: {e}", file=sys.stderr)
                 sys.exit()
         s += " & " + str(value)
-    return s
-
+    return s, True
 
 # Compute one LaTeX table row
 # data : JSON benchmark results
@@ -247,14 +248,22 @@ def compute_LaTeX_row_column(data, table_description, row, column, ignore_unknow
 # row : row name
 # returns a string with LaTeX tabular row with values computed from data according to
 # table_description
-def compute_LaTeX_row(data, table_description, row, ignore_unknown_values=False):
+def compute_LaTeX_row(data, table_description, row, skip_row_failure = False,
+                      ignore_unknown_values=False):
     assert row in table_description["rows"]
     if row not in data["stats"]:
         print("*** WARNING: missing row", row)
         return ""
     s = row
+    success = False
     for column in table_description["columns"]:
-        s += compute_LaTeX_row_column(data, table_description, row, column, ignore_unknown_values)
+        colstr, succeed = compute_LaTeX_row_column(data, table_description, row,
+                                                   column, ignore_unknown_values)
+        s += colstr
+        if succeed:
+            success = True
+    if not success and skip_row_failure:
+        raise NoSuccessException()
     return s
 
 
@@ -263,7 +272,7 @@ def compute_LaTeX_row(data, table_description, row, ignore_unknown_values=False)
 # table_description : JSON description of table
 # returns a string with LaTeX tabular rows with values computed from data according to
 # table_description
-def compute_LaTeX_rows(data, table_description, ignore_unknown_values=False):
+def compute_LaTeX_rows(data, table_description, skip_row_failure = False, ignore_unknown_values=False):
     s = ""
     if isinstance(table_description["rows"],str):
         with open(table_description["rows"], "r") as rowin:
@@ -272,7 +281,10 @@ def compute_LaTeX_rows(data, table_description, ignore_unknown_values=False):
         if row == "":
             s += "\\hline\n"
         else:
-            s += compute_LaTeX_row(data, table_description, row, ignore_unknown_values) + "\\\\\n"
+            try:
+                s += compute_LaTeX_row(data, table_description, row, skip_row_failure, ignore_unknown_values) + "\\\\\n"
+            except NoSuccessException:
+                print(f"*** WARNING: skipping row '{row}' with no success.")
     return s
 
 
@@ -305,11 +317,11 @@ def parameter_only_tabular(table_description):
 # Create a LaTeX table from a JSON benchmark results (see file format above)
 # data : JSON benchmark results
 # table_description : JSON description of table
-def create_LaTeX_table(data, table_description, ignore_unknown_values=False):
+def create_LaTeX_table(data, table_description, skip_row_failure = False, ignore_unknown_values=False):
     assert "name" in data
     tabular_columns = compute_LaTeX_tabular_columns(table_description)
     tabular_header_rows = compute_LaTeX_column_headers(table_description)
-    tabular_rows = compute_LaTeX_rows(data, table_description, ignore_unknown_values)
+    tabular_rows = compute_LaTeX_rows(data, table_description, skip_row_failure, ignore_unknown_values)
     tabular_only = parameter_only_tabular(table_description)
     table = "" if tabular_only else "\\begin{table}\n"
     table += "  \\begin{tabular}{" + tabular_columns + "}\n"
@@ -390,6 +402,7 @@ def main():
     )
     parser.add_argument("-o", help=""" Output file name""")
     parser.add_argument("--ignore-unknown-values", action='store_true', help=""" Do not generate an error on unknown values""")
+    parser.add_argument("--skip-row-failure", action='store_true', help=""" Do not generate row containing no success""")
 
     args = parser.parse_args()
 
@@ -412,7 +425,7 @@ def main():
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
-    table = create_LaTeX_table(results, table_description, args.ignore_unknown_values)
+    table = create_LaTeX_table(results, table_description, args.skip_row_failure, args.ignore_unknown_values)
 
     if args.o is None:
         print(table)
