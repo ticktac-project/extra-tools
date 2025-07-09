@@ -173,7 +173,9 @@ def evaluate_readable(stats, expr):
     if value < 1000:
         return f"{value}"
 
-    if value >= 1_000_000_000:
+    if isinstance(value, float):
+        return "%.2g" % value
+    elif value >= 1_000_000_000:
         value /= 1_000_000_000
         suffix = "G"
     elif value >= 1_000_000:
